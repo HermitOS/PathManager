@@ -11,11 +11,19 @@
     <PackageId>PathManagerTool</PackageId>
     <Authors>Hermit AS Terje Sandstrom</Authors>
     <Description>A tool for managing PATH environment variables</Description>
+    <PackageReadmeFile>readme.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="system.commandline" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="readme.md" Pack="true" PackagePath="\"/>
+    <None Include="LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
