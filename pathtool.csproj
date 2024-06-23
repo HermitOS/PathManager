@@ -12,7 +12,6 @@
     <Authors>Hermit AS Terje Sandstrom</Authors>
     <Description>A tool for managing PATH environment variables</Description>
     <PackageReadmeFile>readme.md</PackageReadmeFile>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/hermitos/pathmanager</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
