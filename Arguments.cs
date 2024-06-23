@@ -303,27 +303,26 @@ public class Arguments
     {
         string envPathString = Environment.GetEnvironmentVariable("PATH", target) ?? "";
         string oppositeEnvPathString = Environment.GetEnvironmentVariable("PATH", target == EnvironmentVariableTarget.User ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User) ?? "";
-
+        string validPath = AddValidPath(path);
         if (!string.IsNullOrEmpty(envPathString))
         {
             envPathString += ";";
         }
 
-        if (ContainsExactPath(envPathString, path))
+        if (ContainsExactPath(envPathString, validPath))
         {
             Console.WriteLine($"Path {path} already exists in {(target == EnvironmentVariableTarget.User ? "user" : "system")} PATH");
             return;
         }
 
-        if (ContainsExactPath(oppositeEnvPathString, path))
+        if (ContainsExactPath(oppositeEnvPathString, validPath))
         {
-            Console.WriteLine($"Path {path} already exists in {(target == EnvironmentVariableTarget.User ? "system" : "user")} PATH");
+            Console.WriteLine($"Path {validPath} already exists in {(target == EnvironmentVariableTarget.User ? "system" : "user")} PATH");
             return;
         }
 
         try
         {
-            string validPath = AddValidPath(path);
             Console.WriteLine($"Adding {validPath} to PATH.");
             envPathString += validPath;
         }

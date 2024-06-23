@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "pathtool": {
+      "commandName": "Project",
+      "commandLineArgs": "add ."
+    }
+  }
+}

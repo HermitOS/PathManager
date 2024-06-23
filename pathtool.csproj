@@ -6,6 +6,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Version>1.0.0-beta.1</Version>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>pathm</ToolCommandName>
+    <PackageId>PathManagerTool</PackageId>
+    <Authors>Hermit AS Terje Sandstrom</Authors>
+    <Description>A tool for managing PATH environment variables</Description>
   </PropertyGroup>
 
   <ItemGroup>
