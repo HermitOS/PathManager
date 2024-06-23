@@ -7,8 +7,8 @@ It provides commands to list, add, save, check duplicates, delete, restore from 
 
 The tool installs as a .NET Core global tool. To install it, run the following command:
 
-```cm
-dotnet tool install --global pathm
+```cmd
+dotnet tool install --global pathmanagertool  --version 1.0.0-beta.1
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ dotnet tool install --global pathm
 To run the tool, use the following command:
 
 ```cmd
-dotnet pathm [command] [options]
+pathm [command] [options]
 ```
 
 The most common options are `--user` and `--system`, the target options, which specify whether the command should be applied to the user or system PATH environment variable.
@@ -29,10 +29,10 @@ If you specify both or none, all will be listed.
 
 **Usage:**
 ```cmd
-dotnet pathm list --user
-dotnet pathm list --system
-dotnet pathm list --user --system
-dotnet pathm list --color-output --include-target
+pathm list --user
+pathm list --system
+pathm list --user --system
+pathm list --color-output --include-target
 ```
 --color-output: Colorizes the output.
 --include-target: Includes the target of the symbolic link in the output.
@@ -43,9 +43,9 @@ Adds a new path to the user or system PATH environment variable.
 Usage:
 
 ```cmd
-dotnet pathm add "C:\\NewPath" --user
-dotnet pathm add "C:\\NewPath" --system
-dotnet pathm add "C:\\NewPath"
+pathm add "C:\\NewPath" --user
+pathm add "C:\\NewPath" --system
+pathm add "C:\\NewPath"
 ```
 
 You can also use `.`, which will add the current directory to the PATH.
@@ -63,9 +63,9 @@ Saves the paths to a specified JSON file.
 Usage:
 
 ```cmd
-dotnet pathm save "paths" "C:\\Path1,C:\\Path2" --user
-dotnet pathm save "paths" "C:\\Path1,C:\\Path2" --system
-dotnet pathm save "paths" "C:\\Path1,C:\\Path2" --user --system
+pathm save "paths" "C:\\Path1,C:\\Path2" --user
+pathm save "paths" "C:\\Path1,C:\\Path2" --system
+pathm save "paths" "C:\\Path1,C:\\Path2" --user --system
 ```
 
 Write the path without any extension, it will automatically be saved as a .json file.
@@ -77,9 +77,9 @@ Checks for duplicated paths and lists them, indicating whether they are in the u
 Usage:
 
 ```cmd
-dotnet pathm checkdup --user
-dotnet pathm checkdup --system
-dotnet pathm checkdup --user --system
+pathm checkdup --user
+pathm checkdup --system
+pathm checkdup --user --system
 ```
 
 ### `delete`
@@ -89,9 +89,9 @@ Deletes a specified path from the user or system PATH environment variable.
 Usage:
 
 ```cmd
-dotnet pathm delete "C:\\PathToDelete" --user
-dotnet pathm delete "C:\\PathToDelete" --system
-dotnet pathm delete "C:\\PathToDelete" --user --system
+pathm delete "C:\\PathToDelete" --user
+pathm delete "C:\\PathToDelete" --system
+pathm delete "C:\\PathToDelete" --user --system
 ```
 
 
@@ -101,9 +101,9 @@ Restores paths from a specified JSON file to the user or system PATH environment
 Usage:
 
 ```cmd
-dotnet pathm restore "paths.json" --user
-dotnet pathm restore "paths.json" --system
-dotnet pathm restore "paths.json" --user --system
+pathm restore "paths.json" --user
+pathm restore "paths.json" --system
+pathm restore "paths.json" --user --system
 ```
 
 ### `find`
@@ -112,9 +112,9 @@ Finds and lists paths containing a certain string in the user or system PATH env
 Usage:
 
 ```cmd
-dotnet pathm find "substring" --user
-dotnet pathm find "substring" --system
-dotnet pathm find "substring" --user --system
+pathm find "substring" --user
+pathm find "substring" --system
+pathm find "substring" --user --system
 ```
 
 ### `gitunix`
@@ -124,5 +124,5 @@ Adds the Git Unix tools to the PATH environment variable, given that git is inst
 Usage:
 
 ```cmd
-dotnet pathm gitunix 
+pathm gitunix 
 ```
