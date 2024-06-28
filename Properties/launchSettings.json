@@ -2,7 +2,7 @@
   "profiles": {
     "pathtool": {
       "commandName": "Project",
-      "commandLineArgs": "add ."
+      "commandLineArgs": "checkdup --system"
     }
   }
 }

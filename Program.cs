@@ -1,5 +1,5 @@
 ﻿using System.Reflection;
-using pathtool;
+using PathTool;
 
 if (args.Length == 0)
 {

@@ -1,10 +1,22 @@
 ﻿using System.CommandLine;
 using System.Text.Json;
+using pathtool;
 
-namespace pathtool;
+namespace PathTool;
 
 public class Arguments
 {
+    public IPathEnvironment PathEnvironment { get; } = new PathEnvironment();
+
+    public Arguments(IPathEnvironment? pathEnvironment = null)
+    {
+        if (pathEnvironment != null)
+        {
+            PathEnvironment = pathEnvironment;
+        }
+
+    }
+
     public async Task<int> Process(string[] args)
     {
         var pathArgument = new Argument<string>("path", "The path to add to be added to the PATH environment variable");
@@ -31,8 +43,8 @@ public class Arguments
         var systemOption = new Option<bool>(
             "--system",
             description: "Works on the system PATH environment variable");
-        var includeTargetOption = new Option<bool>("--include-target", "Include the target (user or system) in the console output");
-        var colorOutputOption = new Option<bool>("--color-output", "Color the output (green for user, blue for system)");
+        var includeTargetOption = new Option<bool>("--text", "Include the target (user or system) in the console output");
+        var colorOutputOption = new Option<bool>("--nocolor", "No Color in the output, otherwise green for user, blue for system)");
 
 
         var checkdupCommand = new Command("checkdup", "Check for duplicated paths")
@@ -59,21 +71,22 @@ public class Arguments
             colorOutputOption
         };
 
-        var rootCommand = new RootCommand
+        var rootCommand = new RootCommand("A simple tool to manage the PATH environment variables")
         {
-            Description = "A simple tool to manage the PATH environment variable"
+            listCommand,
+            addCommand,
+            saveCommand,
+            checkdupCommand,
+            findCommand,
+            deleteCommand,
+            gitunixCommand
+
         };
-        rootCommand.AddCommand(listCommand);
-        rootCommand.AddCommand(addCommand);
         addCommand.AddOption(userOption);
         addCommand.AddOption(systemOption);
-        rootCommand.AddCommand(saveCommand);
         saveCommand.AddOption(userOption);
         saveCommand.AddOption(systemOption);
-        rootCommand.AddCommand(checkdupCommand);
-        rootCommand.AddCommand(findCommand);
-        rootCommand.AddCommand(deleteCommand);
-        rootCommand.AddCommand(gitunixCommand);
+
 
         listCommand.SetHandler(ListPaths, userOption, systemOption, includeTargetOption, colorOutputOption);
 
@@ -81,47 +94,46 @@ public class Arguments
 
         deleteCommand.SetHandler(DeletePath, pathArgument, userOption, systemOption);
 
-        addCommand.SetHandler((path, user, system) =>
-        {
-            if (user || (!system && !user))
-            {
-                AddPathToEnvironment(path, EnvironmentVariableTarget.User);
-            }
-            if (system)
-            {
-                AddPathToEnvironment(path, EnvironmentVariableTarget.Machine);
-            }
-        }, pathArgument, userOption, systemOption);
+        addCommand.SetHandler((path, user, system) => { AddPaths(user, system, path); }, pathArgument, userOption, systemOption);
 
-        saveCommand.SetHandler((file, user, system) =>
-        {
-            if (string.IsNullOrEmpty(file))
-            {
-                Console.WriteLine("No file provided");
-                return;
-            }
-            if (!user && !system)
-            {
-                Console.WriteLine("You must specify either --user or --system");
-                return;
-            }
-            string userPathstring = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
-            string systemEnvPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
-            if (user)
-            {
-                SavePaths(userPathstring, file, "user");
-            }
-            if (system)
-            {
-                SavePaths(systemEnvPath, file, "system");
-            }
+        saveCommand.SetHandler(SavePaths, filenameArgument, userOption, systemOption);
 
-        }, filenameArgument, userOption, systemOption);
-        // Invoke the command line handler
         return await rootCommand.InvokeAsync(args);
     }
 
-    private static void DeletePath(string path, bool user, bool system)
+    private void AddPaths(bool user, bool system, string path)
+    {
+        if (user || (!system && !user))
+        {
+            AddPathToEnvironment(path, EnvironmentVariableTarget.User);
+        }
+
+        if (system)
+        {
+            AddPathToEnvironment(path, EnvironmentVariableTarget.Machine);
+        }
+    }
+
+    private void SavePaths(string file, bool user, bool system)
+    {
+        if (string.IsNullOrEmpty(file))
+        {
+            Console.WriteLine("No file provided");
+            return;
+        }
+        if (user || (!user && !system))
+        {
+            string userPathstring = PathEnvironment.GetUserPath();
+            SavePaths(userPathstring, file, "user");
+        }
+        if (system || (!user && !system))
+        {
+            string systemEnvPath = PathEnvironment.GetSystemPath();
+            SavePaths(systemEnvPath, file, "system");
+        }
+    }
+
+    private void DeletePath(string path, bool user, bool system)
     {
         if (path == ".")
         {
@@ -131,20 +143,20 @@ public class Arguments
         if (system) DeletePathFromEnvironment(path, EnvironmentVariableTarget.Machine);
     }
 
-    private static void ListPaths(bool user, bool system, bool includeTarget, bool colorOutput)
+    private void ListPaths(bool user, bool system, bool includeTarget, bool colorOutput)
     {
         var paths = new List<(string path, string target)>();
-        if ((!user && !system) || user)
+        if (IsUserOrAll(user, system))
         {
-            string userPathString = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
+            string userPathString = PathEnvironment.GetUserPath();
             if (!string.IsNullOrEmpty(userPathString))
             {
                 paths.AddRange(userPathString.Split(';').Select(p => (p, "user")));
             }
         }
-        if ((!user && !system) || system)
+        if (IsSystemOrAll(user, system))
         {
-            string systemPathString = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+            string systemPathString = PathEnvironment.GetPath(EnvironmentVariableTarget.Machine);
             if (!string.IsNullOrEmpty(systemPathString))
             {
                 paths.AddRange(systemPathString.Split(';').Select(p => (p, "system")));
@@ -155,7 +167,7 @@ public class Arguments
             foreach (var (path, target) in paths.OrderBy(p => p.path))
             {
                 string output = includeTarget ? $"{path} ({target})" : path;
-                if (colorOutput)
+                if (!colorOutput)
                 {
                     Console.ForegroundColor = target switch
                     {
@@ -174,7 +186,17 @@ public class Arguments
         }
     }
 
-    static void SavePaths(string pathString, string file, string suffix)
+    private static bool IsUserOrAll(bool user, bool system)
+    {
+        return (!user && !system) || user;
+    }
+
+    private static bool IsSystemOrAll(bool user, bool system)
+    {
+        return (!user && !system) || system;
+    }
+
+    void SavePaths(string pathString, string file, string suffix)
     {
         var pathsList = pathString.Split(';');
         string json = JsonSerializer.Serialize(pathsList, new JsonSerializerOptions { WriteIndented = true });
@@ -184,7 +206,7 @@ public class Arguments
     }
 
 
-    static string InsertSuffixBeforeExtension(string filename, string suffix)
+    string InsertSuffixBeforeExtension(string filename, string suffix)
     {
         // Get the directory, file name without extension, and extension separately
         string directory = Path.GetDirectoryName(filename) ?? "";
@@ -197,62 +219,58 @@ public class Arguments
         return Path.Combine(directory, newFileName);
     }
 
-    static void CheckDuplicates(bool user, bool system)
+    void CheckDuplicates(bool user, bool system)
     {
-        var userPaths = new HashSet<string>();
-        var systemPaths = new HashSet<string>();
+        var userPaths = new List<string>();
+        var systemPaths = new List<string>();
 
-        if (user)
+        if (IsUserOrAll(user, system))
         {
-            string userPathString = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
-            userPaths = [.. userPathString.Split(';', StringSplitOptions.RemoveEmptyEntries)];
+            userPaths = PathEnvironment.GetAllUserPaths();
         }
 
-        if (system)
+        if (IsSystemOrAll(user, system))
         {
-            string systemPathString = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
-            systemPaths = [.. systemPathString.Split(';', StringSplitOptions.RemoveEmptyEntries)];
+            systemPaths = PathEnvironment.GetAllSystemPaths();
+        }
+        var DuplicateChecker = new DuplicateChecker();
+        DuplicateChecker.CheckForDuplicates(userPaths, systemPaths);
+        
+        Console.WriteLine("Duplicate Paths (shown in lower case):");
+        if (user == system)
+            foreach (var path in DuplicateChecker.DuplicatePaths)
+            {
+                Console.WriteLine($"{path.Key} (in both user and system) ({path.Item2} instances)");
+            }
+        if (user != system)
+        {
+            foreach (var path in DuplicateChecker.UserDuplicates)
+            {
+                Console.WriteLine($"{path.Key} (in user)  ({path.Item2} instances)");
+            }
+
+            foreach (var path in DuplicateChecker.SystemDuplicates)
+            {
+                Console.WriteLine($"{path.Key} (in system)  ({path.Item2} instances)");
+            }
         }
 
-        // Find duplicates in user and system paths
-        HashSet<string> duplicatePaths = [.. userPaths.Intersect(systemPaths)];
-
-        // Also find duplicates within user and system paths themselves
-        var userDuplicates = userPaths.GroupBy(p => p).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-        var systemDuplicates = systemPaths.GroupBy(p => p).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-
-        Console.WriteLine("Duplicate Paths:");
-        foreach (var path in duplicatePaths)
-        {
-            Console.WriteLine($"{path} (in both user and system)");
-        }
-
-        foreach (var path in userDuplicates)
-        {
-            Console.WriteLine($"{path} (in user)");
-        }
-
-        foreach (var path in systemDuplicates)
-        {
-            Console.WriteLine($"{path} (in system)");
-        }
-
-        if (!duplicatePaths.Any() && !userDuplicates.Any() && !systemDuplicates.Any())
+        if (!DuplicateChecker.HasDuplicates)
         {
             Console.WriteLine("No duplicates found.");
         }
     }
 
-    static void FindPaths(string searchString, bool user, bool system)
+    void FindPaths(string searchString, bool user, bool system)
     {
         searchString = searchString.ToLower();
 
-        string userPathString = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
+        string userPathString = PathEnvironment.GetUserPath();
         var userPaths = userPathString.Split(';', StringSplitOptions.RemoveEmptyEntries)
             .Where(p => p.ToLower().Contains(searchString))
             .ToList();
 
-        string systemPathString = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+        string systemPathString = PathEnvironment.GetPath(EnvironmentVariableTarget.Machine);
         var systemPaths = systemPathString.Split(';', StringSplitOptions.RemoveEmptyEntries)
             .Where(p => p.ToLower().Contains(searchString))
             .ToList();
@@ -282,7 +300,7 @@ public class Arguments
         }
     }
 
-    static string AddValidPath(string path)
+    string AddValidPath(string path)
     {
         if (path == ".")
         {
@@ -299,10 +317,10 @@ public class Arguments
         throw new ArgumentException($"The path '{path}' is not valid.");
     }
 
-    static void AddPathToEnvironment(string path, EnvironmentVariableTarget target)
+    void AddPathToEnvironment(string path, EnvironmentVariableTarget target)
     {
-        string envPathString = Environment.GetEnvironmentVariable("PATH", target) ?? "";
-        string oppositeEnvPathString = Environment.GetEnvironmentVariable("PATH", target == EnvironmentVariableTarget.User ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User) ?? "";
+        string envPathString = PathEnvironment.GetPath(target);
+        string oppositeEnvPathString = PathEnvironment.GetPath(target == EnvironmentVariableTarget.User ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User);
         string validPath = AddValidPath(path);
         if (!string.IsNullOrEmpty(envPathString))
         {
@@ -332,19 +350,19 @@ public class Arguments
             return;
         }
 
-        Environment.SetEnvironmentVariable("PATH", envPathString, target);
+        PathEnvironment.SetPath(target, envPathString);
         Console.WriteLine($"Path {path} added to {(target == EnvironmentVariableTarget.User ? "user" : "system")} PATH");
     }
 
-    static bool ContainsExactPath(string envPathString, string pathToCheck)
+    bool ContainsExactPath(string envPathString, string pathToCheck)
     {
         var envPaths = new HashSet<string>(envPathString.Split(';', StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
         return envPaths.Contains(pathToCheck);
     }
 
-    static void DeletePathFromEnvironment(string path, EnvironmentVariableTarget target)
+    void DeletePathFromEnvironment(string path, EnvironmentVariableTarget target)
     {
-        string envPathString = Environment.GetEnvironmentVariable("PATH", target) ?? "";
+        string envPathString = PathEnvironment.GetPath(target);
         var envPaths = new HashSet<string>(envPathString.Split(';', StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
 
         if (!envPaths.Contains(path))
@@ -360,11 +378,11 @@ public class Arguments
         envPathString = string.Join(";", envPaths);
 
         // Set the updated environment variable
-        Environment.SetEnvironmentVariable("PATH", envPathString, target);
+        PathEnvironment.SetPath(target, envPathString);
         Console.WriteLine($"Path {path} removed from {(target == EnvironmentVariableTarget.User ? "user" : "system")} PATH");
     }
 
-    static void EnsureGitAndUnixToolsInPath()
+    void EnsureGitAndUnixToolsInPath()
     {
         string gitPath = FindExecutableInPath("git.exe");
         if (string.IsNullOrEmpty(gitPath))
@@ -376,7 +394,7 @@ public class Arguments
         Console.WriteLine($"Git found in: {gitPath}");
 
         // Assuming Unix tools are in 'usr/bin' under the Git installation directory
-        var gitDirectory = Directory.GetParent(gitPath)?.ToString()??"";
+        var gitDirectory = Directory.GetParent(gitPath)?.ToString() ?? "";
         string unixToolsPath = Path.Combine(Path.GetDirectoryName(gitDirectory) ?? string.Empty, "usr", "bin");
         if (!Directory.Exists(unixToolsPath))
         {
@@ -387,12 +405,11 @@ public class Arguments
         Console.WriteLine($"Unix tools directory found: {unixToolsPath}");
 
         // Check if unixToolsPath is in the user PATH
-        string userPathString = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
+        string userPathString = PathEnvironment.GetUserPath();
         var userPaths = new HashSet<string>(userPathString.Split(';', StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
 
-        if (!userPaths.Contains(unixToolsPath))
+        if (userPaths.Add(unixToolsPath))
         {
-            userPaths.Add(unixToolsPath);
             Environment.SetEnvironmentVariable("PATH", string.Join(";", userPaths), EnvironmentVariableTarget.User);
             Console.WriteLine($"Added Unix tools path to user PATH: {unixToolsPath}");
         }
@@ -402,7 +419,7 @@ public class Arguments
         }
     }
 
-    static string FindExecutableInPath(string executable)
+    string FindExecutableInPath(string executable)
     {
         var paths = Environment.GetEnvironmentVariable("PATH")!.Split(Path.PathSeparator);
         foreach (var path in paths)
